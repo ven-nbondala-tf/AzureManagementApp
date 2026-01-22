@@ -723,6 +723,56 @@ npm run dev
 
 ---
 
+## Session History
+
+### Session: January 22, 2026
+
+**Accomplishments:**
+1. **Unit Testing Setup**
+   - Installed Vitest 1.6.0, React Testing Library, jsdom 24.0.0
+   - Created `vitest.config.ts` with path aliases and coverage settings
+   - Created `src/test/setup.ts` with mocks for Electron API, matchMedia, ResizeObserver, clipboard
+   - Created `src/test/mocks/electron.ts` for Electron module mocking
+   - Wrote 38 passing tests:
+     - `authStore.test.ts` (8 tests)
+     - `subscriptionStore.test.ts` (8 tests)
+     - `rbac-api.test.ts` (6 tests)
+     - `Header.test.tsx` (10 tests)
+     - `Modal.test.tsx` (6 tests)
+
+2. **Production Build**
+   - Fixed code signing issues (`signAndEditExecutable: false`)
+   - Cleared corrupted winCodeSign cache
+   - Successfully built Windows executables:
+     - `Azure Management App-1.0.0-win-x64.exe` (91.2 MB NSIS installer)
+     - `Azure Management App-1.0.0-portable.exe` (91 MB portable)
+
+3. **Git Repository**
+   - Initialized git repo
+   - Updated `.gitignore` (added .claude/, *.tsbuildinfo, azurite files)
+   - Created initial commit (78 files, 27,089 insertions)
+   - Pushed to GitHub: https://github.com/ven-nbondala-tf/AzureManagementApp
+
+4. **Documentation**
+   - Added comprehensive build documentation to CLAUDE.md
+   - Added unit testing documentation
+   - Added troubleshooting guide for common build issues
+
+**Port Configuration:**
+- Dev server runs on port **5200** (configured in vite.config.ts, package.json, src/main/index.ts)
+
+**Key Files Created This Session:**
+- `vitest.config.ts`
+- `src/test/setup.ts`
+- `src/test/mocks/electron.ts`
+- `src/renderer/store/__tests__/authStore.test.ts`
+- `src/renderer/store/__tests__/subscriptionStore.test.ts`
+- `src/renderer/services/__tests__/rbac-api.test.ts`
+- `src/renderer/components/__tests__/Header.test.tsx`
+- `src/renderer/components/__tests__/Modal.test.tsx`
+
+---
+
 ## Contact & Continuation
 
 This claude.md file contains all context needed to continue development in a new conversation. Reference this file when starting new sessions to maintain continuity.
