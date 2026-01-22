@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+release/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Azurite (Azure storage emulator)
+__azurite_db_*
+
+# Misc
+nul
+
+# Claude Code
+.claude/
+
+# Credentials - NEVER commit these
+*.pem
+*.key
+credentials.json
+config.txt
