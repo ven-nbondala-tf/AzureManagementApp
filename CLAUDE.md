@@ -348,24 +348,100 @@ npm install
 npm run dev
 ```
 
-### Build
+### Unit Testing
+
+The project uses Vitest with React Testing Library for testing.
+
+```bash
+npm test              # Run tests in watch mode
+npm run test:run      # Run tests once
+npm run test:coverage # Run with coverage report
+npm run test:ui       # Run with Vitest UI
+```
+
+**Test Configuration:**
+- `vitest.config.ts` - Test runner configuration
+- `src/test/setup.ts` - Global mocks (Electron API, browser APIs)
+- `src/test/mocks/electron.ts` - Electron module mocks
+
+**Test Locations:**
+- `src/renderer/store/__tests__/` - Zustand store tests
+- `src/renderer/services/__tests__/` - API service tests
+- `src/renderer/components/__tests__/` - Component tests
+
+### Building Production Executables
+
+#### Prerequisites
+1. Node.js 18+ installed
+2. All dependencies installed (`npm install`)
+3. No syntax/type errors in code
+
+#### Step-by-Step Build Process
+
+```bash
+# 1. Run tests to ensure code quality
+npm run test:run
+
+# 2. Build for Windows (creates both NSIS installer and portable)
+npm run build:win
+```
+
+#### Build Output
+
+After successful build, executables are created in the `release/` folder:
+
+| File | Description | Size |
+|------|-------------|------|
+| `Azure Management App-{version}-win-x64.exe` | NSIS Installer | ~91 MB |
+| `Azure Management App-{version}-portable.exe` | Portable (no install) | ~91 MB |
+
+#### Build Commands Reference
 
 ```bash
 npm run build        # Build for current platform
-npm run build:win    # Build for Windows
-npm run build:mac    # Build for macOS
-npm run build:linux  # Build for Linux
+npm run build:win    # Build for Windows (NSIS + portable)
+npm run build:mac    # Build for macOS (DMG + ZIP)
+npm run build:linux  # Build for Linux (AppImage + deb + rpm)
 ```
+
+#### Troubleshooting Build Issues
+
+**1. Code Signing Errors (Windows)**
+```
+Cannot create symbolic link: A required privilege is not held
+```
+**Solution:** Code signing is disabled by default (`signAndEditExecutable: false` in electron-builder.json). For production distribution, obtain a code signing certificate and enable signing.
+
+**2. Icon Errors**
+```
+icon directory doesn't contain icons
+```
+**Solution:** Either add icons to `build/` folder or remove icon references from electron-builder.json.
+
+**3. Cache Corruption**
+If builds fail unexpectedly, clear the electron-builder cache:
+```bash
+rm -rf ~/AppData/Local/electron-builder/Cache
+```
+
+#### Build Configuration
+
+Build settings are in `electron-builder.json`:
+- `win.target` - Windows targets (nsis, portable)
+- `nsis` - Installer options (one-click, shortcuts, etc.)
+- `asar` - Package app into asar archive (enabled)
+- `compression` - Set to "maximum" for smaller builds
 
 ### Distribution Formats
 
-- **Windows:** NSIS installer (.exe), portable (.exe), MSI
-- **macOS:** DMG, PKG
+- **Windows:** NSIS installer (.exe), portable (.exe)
+- **macOS:** DMG, ZIP (for both x64 and arm64)
 - **Linux:** AppImage, deb, rpm
 
 ### Auto-Update
 
-- Use electron-updater with GitHub releases
+- Uses electron-updater with GitHub releases
+- Configure `publish` in electron-builder.json with your GitHub repo
 - Silent background updates with user notification
 
 ---
@@ -401,8 +477,10 @@ ClientSecret = your-client-secret-here
 - [x] Project initialization
 - [x] Core infrastructure
 - [x] Module implementation (all core modules complete)
-- [ ] Testing (manual testing complete, automated tests pending)
+- [x] Unit testing setup (Vitest + React Testing Library, 38 tests)
 - [x] Distribution setup
+- [x] Production build created (NSIS installer + portable)
+- [x] GitHub repository initialized
 
 ---
 
@@ -628,6 +706,20 @@ ClientSecret = your-client-secret-here
 | `New-EntraGroup`          | `src/renderer/services/groups-api.ts`    |
 | `New-ApplicationSecret`   | `src/renderer/services/sp-api.ts`        |
 | `Get-ExpiringCredentials` | `src/renderer/services/monitor-api.ts`   |
+
+---
+
+## GitHub Repository
+
+**URL:** https://github.com/ven-nbondala-tf/AzureManagementApp
+
+```bash
+# Clone the repository
+git clone https://github.com/ven-nbondala-tf/AzureManagementApp.git
+cd AzureManagementApp
+npm install
+npm run dev
+```
 
 ---
 
