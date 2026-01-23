@@ -1,6 +1,69 @@
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, net } from 'electron';
 import { SecureStorage } from './secure-storage';
 import Store from 'electron-store';
+
+/**
+ * Helper to make HTTP requests using Electron's net module
+ * This is more reliable than native fetch in production builds
+ * as it properly handles system proxies and certificates
+ */
+async function electronFetch(
+  url: string,
+  options: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  } = {}
+): Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text: () => Promise<string> }> {
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: options.method || 'GET',
+      url,
+    });
+
+    // Set headers
+    if (options.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        request.setHeader(key, value);
+      }
+    }
+
+    let responseData = '';
+    let statusCode = 0;
+
+    request.on('response', (response) => {
+      statusCode = response.statusCode;
+
+      response.on('data', (chunk) => {
+        responseData += chunk.toString();
+      });
+
+      response.on('end', () => {
+        resolve({
+          ok: statusCode >= 200 && statusCode < 300,
+          status: statusCode,
+          json: async () => JSON.parse(responseData),
+          text: async () => responseData,
+        });
+      });
+
+      response.on('error', (error) => {
+        reject(error);
+      });
+    });
+
+    request.on('error', (error) => {
+      reject(error);
+    });
+
+    // Write body if present
+    if (options.body) {
+      request.write(options.body);
+    }
+
+    request.end();
+  });
+}
 
 const secureStorage = new SecureStorage();
 
@@ -58,7 +121,7 @@ async function acquireToken(
     grant_type: 'client_credentials',
   });
 
-  const response = await fetch(tokenEndpoint, {
+  const response = await electronFetch(tokenEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -328,7 +391,7 @@ export function setupIpcHandlers(): void {
       let nextLink: string | null = `${baseUrl}/secrets?api-version=7.4`;
 
       while (nextLink) {
-        const response = await fetch(nextLink, {
+        const response = await electronFetch(nextLink, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -395,7 +458,7 @@ export function setupIpcHandlers(): void {
       const versionPath = params.version ? `/${params.version}` : '';
       const url = `${baseUrl}/secrets/${params.secretName}${versionPath}?api-version=7.4`;
 
-      const response = await fetch(url, {
+      const response = await electronFetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -495,7 +558,7 @@ export function setupIpcHandlers(): void {
         body.tags = params.options.tags;
       }
 
-      const response = await fetch(url, {
+      const response = await electronFetch(url, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -555,7 +618,7 @@ export function setupIpcHandlers(): void {
       const baseUrl = params.vaultUri.replace(/\/$/, '');
       const url = `${baseUrl}/secrets/${params.secretName}?api-version=7.4`;
 
-      const response = await fetch(url, {
+      const response = await electronFetch(url, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -599,7 +662,7 @@ export function setupIpcHandlers(): void {
       let nextLink: string | null = `${baseUrl}/secrets/${params.secretName}/versions?api-version=7.4`;
 
       while (nextLink) {
-        const response = await fetch(nextLink, {
+        const response = await electronFetch(nextLink, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -699,7 +762,7 @@ export function setupIpcHandlers(): void {
         body.tags = params.attributes.tags;
       }
 
-      const response = await fetch(url, {
+      const response = await electronFetch(url, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
