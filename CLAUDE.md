@@ -76,6 +76,7 @@ AzureManagementApp/
 │   │   │   └── useGraphAPI.ts
 │   │   │
 │   │   ├── services/            # API services
+│   │   │   ├── api-fetch.ts      # IPC proxy for production builds
 │   │   │   ├── azure-api.ts
 │   │   │   ├── graph-api.ts
 │   │   │   └── cost-api.ts
@@ -424,6 +425,13 @@ If builds fail unexpectedly, clear the electron-builder cache:
 rm -rf ~/AppData/Local/electron-builder/Cache
 ```
 
+**4. TypeScript Build Cache (Preload Script)**
+If preload script changes aren't reflected in production builds:
+```bash
+npx tsc -b --clean && npx tsc -b
+```
+This cleans and rebuilds all TypeScript project references (main, preload, renderer).
+
 #### Build Configuration
 
 Build settings are in `electron-builder.json`:
@@ -562,6 +570,9 @@ ClientSecret = your-client-secret-here
 
 ## Recent Bug Fixes
 
+- **Production Build Networking**: All API calls now route through Electron's main process via IPC proxy
+- **HashRouter for Production**: Replaced BrowserRouter with HashRouter for file:// protocol compatibility
+- **Electron net Module**: Authentication and API calls use Electron's `net` module instead of native `fetch`
 - **CORS Fix**: Authentication token acquisition moved to main process
 - **$orderby Removal**: Client-side sorting for all Graph API list operations
 - **Horizontal Scroll**: Fixed layout overflow in federated credentials display
@@ -770,6 +781,64 @@ npm run dev
 - `src/renderer/services/__tests__/rbac-api.test.ts`
 - `src/renderer/components/__tests__/Header.test.tsx`
 - `src/renderer/components/__tests__/Modal.test.tsx`
+
+### Session: January 22, 2026 (Evening) - Production Build Fixes
+
+**Problem:** Application worked in dev mode but failed in production builds with "fetch failed" errors.
+
+**Root Causes Identified:**
+1. Native `fetch` in main process fails in packaged Electron apps (proxy/cert issues)
+2. `fetch` from renderer fails when loaded from `file://` protocol
+3. `BrowserRouter` doesn't work with `file://` protocol
+4. TypeScript build cache wasn't rebuilding preload script
+
+**Fixes Implemented:**
+
+1. **Electron net Module for Main Process**
+   - Created `electronFetch()` helper using Electron's `net.request()` API
+   - Handles system proxies and SSL certificates correctly in production
+   - File: `src/main/ipc-handlers.ts`
+
+2. **IPC Proxy for Renderer API Calls**
+   - Added `proxy-fetch` IPC handler in main process
+   - Created `src/renderer/services/api-fetch.ts` utility
+   - Updated all 8 service files to use `apiFetch()` instead of native `fetch`:
+     - `azure-api.ts`, `graph-api.ts`, `cost-api.ts`, `rbac-api.ts`
+     - `groups-api.ts`, `sp-api.ts`, `monitor-api.ts`, `keyvault-api.ts`
+
+3. **HashRouter for Production**
+   - Changed `BrowserRouter` to `HashRouter` in `src/renderer/App.tsx`
+   - URLs now use hash format (`/#/costs`) which works with `file://` protocol
+
+4. **TypeScript Build Fix**
+   - Need `tsc -b --clean` to rebuild preload script when adding new IPC methods
+   - Added troubleshooting note to documentation
+
+**Files Modified:**
+- `src/main/ipc-handlers.ts` - Added `electronFetch()` and `proxy-fetch` handler
+- `src/preload/index.ts` - Exposed `proxyFetch` to renderer
+- `src/renderer/App.tsx` - BrowserRouter → HashRouter
+- `src/renderer/services/api-fetch.ts` - New file (IPC fetch wrapper)
+- `src/renderer/services/*.ts` - All 8 service files updated
+- `src/renderer/types/electron.d.ts` - Added `ProxyFetchResponse` type
+
+**Key Pattern - Production API Calls:**
+```typescript
+// In renderer service (e.g., azure-api.ts)
+import { apiFetch } from './api-fetch';
+
+const response = await apiFetch(url, {
+  method: 'GET',
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+// apiFetch routes through IPC → main process → electronFetch → net.request
+```
+
+**Build Commands for Clean Production Build:**
+```bash
+npx tsc -b --clean && npm run build:win
+```
 
 ---
 
