@@ -4,6 +4,7 @@
  */
 
 import { getAzureToken } from './azure-auth';
+import { apiFetch } from './api-fetch';
 
 const AZURE_API_BASE = 'https://management.azure.com';
 
@@ -70,7 +71,7 @@ async function costRequest<T>(
 ): Promise<T> {
   const token = await getAzureToken(config);
 
-  const response = await fetch(`${AZURE_API_BASE}${path}`, {
+  const response = await apiFetch(`${AZURE_API_BASE}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -80,13 +81,13 @@ async function costRequest<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
+    const error = await response.json().catch(() => ({})) as { error?: { message?: string } };
     throw new Error(
       error.error?.message || `Cost API error: ${response.status}`
     );
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 /**

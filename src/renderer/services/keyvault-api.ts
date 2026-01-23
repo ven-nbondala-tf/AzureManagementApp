@@ -5,6 +5,7 @@
  */
 
 import { getAzureToken } from './azure-auth';
+import { apiFetch } from './api-fetch';
 
 const AZURE_API_BASE = 'https://management.azure.com';
 
@@ -91,7 +92,7 @@ export async function listKeyVaults(
   let url = `${AZURE_API_BASE}/subscriptions/${subscriptionId}/providers/Microsoft.KeyVault/vaults?api-version=2023-07-01`;
 
   while (url) {
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -99,13 +100,13 @@ export async function listKeyVaults(
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({})) as { error?: { message?: string } };
       throw new Error(
         error.error?.message || `Failed to list Key Vaults: ${response.status}`
       );
     }
 
-    const data: Response = await response.json();
+    const data = await response.json() as Response;
 
     for (const vault of data.value) {
       // Extract resource group from ID

@@ -77,7 +77,18 @@ export interface KeyVaultSecretVersionInfo {
   notBefore: string | null;
 }
 
+export interface ProxyFetchResponse {
+  ok: boolean;
+  status: number;
+  body: string;
+}
+
 export interface ElectronAPI {
+  proxyFetch: (url: string, options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) => Promise<IpcResponse<ProxyFetchResponse>>;
   auth: {
     authenticate: (clientId: string, tenantId: string, clientSecret: string) => Promise<IpcResponse<AuthenticateResult>>;
     acquireGraphToken: (clientId: string, tenantId: string, clientSecret: string) => Promise<IpcResponse<AuthTokenData>>;

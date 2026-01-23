@@ -4,6 +4,7 @@
  */
 
 import { getGraphToken } from './azure-auth';
+import { apiFetch } from './api-fetch';
 import type { User, Group, ServicePrincipal, Application } from '../types';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
@@ -24,17 +25,18 @@ async function graphRequest<T>(
 ): Promise<T> {
   const token = await getGraphToken(config);
 
-  const response = await fetch(`${GRAPH_API_BASE}${path}`, {
-    ...options,
+  const response = await apiFetch(`${GRAPH_API_BASE}${path}`, {
+    method: options.method || 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     },
+    body: options.body as string | undefined,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
+    const error = await response.json().catch(() => ({})) as { error?: { message?: string } };
     throw new Error(
       error.error?.message || `Graph API error: ${response.status}`
     );
@@ -45,7 +47,7 @@ async function graphRequest<T>(
     return {} as T;
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 // ============ User Operations ============

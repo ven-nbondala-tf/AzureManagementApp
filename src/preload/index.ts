@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Define the API exposed to the renderer
 const electronAPI = {
+  // Proxy fetch - routes all API calls through main process (required for production)
+  proxyFetch: (url: string, options?: { method?: string; headers?: Record<string, string>; body?: string }) =>
+    ipcRenderer.invoke('proxy-fetch', url, options || {}),
+
   // Authentication (runs in main process to avoid CORS)
   auth: {
     authenticate: (clientId: string, tenantId: string, clientSecret: string) =>

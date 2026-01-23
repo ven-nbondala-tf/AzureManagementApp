@@ -154,6 +154,29 @@ function isTokenExpired(token: TokenResponse | null): boolean {
 }
 
 export function setupIpcHandlers(): void {
+  // Generic proxy fetch handler - allows renderer to make API calls through main process
+  // This is necessary because fetch from renderer fails in production (file:// protocol)
+  ipcMain.handle('proxy-fetch', async (_, url: string, options: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) => {
+    try {
+      const response = await electronFetch(url, options);
+      const text = await response.text();
+      return {
+        success: true,
+        data: {
+          ok: response.ok,
+          status: response.status,
+          body: text,
+        },
+      };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   // Authentication handlers (run in main process to avoid CORS)
   ipcMain.handle('auth:acquire-graph-token', async (_, clientId: string, tenantId: string, clientSecret: string) => {
     try {
