@@ -501,7 +501,7 @@ ClientSecret = your-client-secret-here
 - **Month-over-Month Comparison**: Period comparison with delta and percentage change
 - **Improved Layout**: 4-column summary cards, reorganized chart placement
 
-### RBAC Manager Improvements (Latest Session)
+### RBAC Manager Improvements
 
 - **Tabbed Scope Selection**: Intuitive interface with Subscription/Resource Group/Resource tabs
 - **Resource-Level RBAC**: Grant or remove access at individual resource level
@@ -512,15 +512,17 @@ ClientSecret = your-client-secret-here
 - **Principal Name Resolution**: Displays user/group/SP names instead of raw IDs
 - **Batch Name Resolution**: Efficient API calls with caching (1-hour TTL)
 - **Confirmation Modal**: Full-context modal for role assignment deletions
+- **Delete Error Display**: Error messages shown inside confirmation modal instead of silently swallowed
 
-### Groups Manager Improvements (Latest Session)
+### Groups Manager Improvements
 
 - **Nested Group Support**: Add AD groups as members to other groups
 - **Service Principal Display Fix**: Correctly identifies and displays service principals in member list
 - **Member Type Detection**: Multiple fallback methods for accurate type detection
 - **Group Search for Membership**: Excludes current group to prevent circular references
+- **Type-Cast Member Fetching**: Fetches users, service principals, and groups via separate type-specific Graph API endpoints to work with limited permissions
 
-### Key Vault Manager (New Module - Latest Session)
+### Key Vault Manager (New Module)
 
 - **Secret Management**: List, view, create, update, and delete Key Vault secrets
 - **Version History**: View all versions of a secret with timestamps
@@ -553,6 +555,7 @@ ClientSecret = your-client-secret-here
 1. **Graph API Restrictions**
    - `$orderby` not supported for groups/apps/servicePrincipals (client-side sorting used)
    - Principal name resolution requires additional API calls per principal
+   - Generic `/groups/{id}/members` may not return all member types without `Directory.Read.All` (workaround: type-cast endpoints)
 
 2. **Cost Management**
    - Cost Forecast and Anomaly Detection deferred for future enhancement
@@ -579,6 +582,8 @@ ClientSecret = your-client-secret-here
 - **Principal Names**: Now resolved via batch Graph API calls instead of empty field
 - **Key Vault CSP**: Moved Key Vault data plane API calls to main process via IPC
 - **Service Principal in Groups**: Fixed `@odata.type` detection by removing `$select` clause
+- **RBAC Delete Error Handling**: Delete errors now displayed in confirmation modal instead of silently swallowed
+- **Group Members Missing Types**: Generic `/members` endpoint filtered out SPs and groups without `Directory.Read.All`; switched to type-cast endpoints (`/members/microsoft.graph.user`, `.servicePrincipal`, `.group`) that work with existing per-type permissions
 
 ---
 
@@ -839,6 +844,49 @@ const response = await apiFetch(url, {
 ```bash
 npx tsc -b --clean && npm run build:win
 ```
+
+### Session: January 27, 2026 - Bug Fixes & Group Member Visibility
+
+**Accomplishments:**
+
+1. **RBAC Delete Error Display**
+   - Added `error` prop to `ConfirmationModal` component (red banner between message and actions)
+   - Added `deleteErrorMsg` state in RBAC Manager to capture and display deletion errors
+   - Error clears on retry and on modal close
+   - Files: `src/renderer/components/common/ConfirmationModal.tsx`, `src/renderer/components/modules/RBACManager/index.tsx`
+
+2. **Group Members - Service Principals & Nested Groups Not Showing**
+   - **Root Cause**: The generic `/groups/{id}/members` Graph API endpoint filters out member types the service principal lacks specific read permissions for. Without `Directory.Read.All`, only users were returned.
+   - **Fix**: Replaced single `/members` call with three parallel type-cast endpoint calls:
+     - `/groups/{id}/members/microsoft.graph.user` (uses `User.Read.All`)
+     - `/groups/{id}/members/microsoft.graph.servicePrincipal` (uses `Application.ReadWrite.All`)
+     - `/groups/{id}/members/microsoft.graph.group` (uses `Group.ReadWrite.All`)
+   - Each call uses the existing per-type permission, no admin consent needed
+   - File: `src/renderer/services/groups-api.ts`
+
+3. **Production Build**
+   - Built new Windows executables with all fixes
+   - Portable exe placed on Desktop
+
+**Key Pattern - Type-Cast Member Fetching:**
+```typescript
+// Fetch all member types in parallel using type-specific endpoints
+const [users, servicePrincipals, groups] = await Promise.all([
+  fetchAllPages(`/groups/${groupId}/members/microsoft.graph.user?$top=100`).catch(() => []),
+  fetchAllPages(`/groups/${groupId}/members/microsoft.graph.servicePrincipal?$top=100`).catch(() => []),
+  fetchAllPages(`/groups/${groupId}/members/microsoft.graph.group?$top=100`).catch(() => []),
+]);
+```
+
+**Key Files Modified:**
+- `src/renderer/components/common/ConfirmationModal.tsx` - Added `error` prop
+- `src/renderer/components/modules/RBACManager/index.tsx` - Delete error state management
+- `src/renderer/services/groups-api.ts` - Type-cast member fetching
+
+**Azure RBAC Permissions Note:**
+- The service principal (`github_databricks`) gets `User Access Administrator` on the `TFFI` management group via group membership (`grp_azr_vendor_tffi_user-access-administrator`)
+- Subscription `543fb3c7-...` (D365 Dev/Test) is under the `TFFI` management group
+- RBAC changes can take 5-10 minutes to propagate
 
 ---
 
