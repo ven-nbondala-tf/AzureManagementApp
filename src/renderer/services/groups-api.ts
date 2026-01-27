@@ -336,46 +336,59 @@ export async function getGroupMembers(
       mail?: string;
       appId?: string;
       servicePrincipalType?: string;
+      securityEnabled?: boolean;
     }>;
     '@odata.nextLink'?: string;
   }
 
-  const allMembers: GroupMember[] = [];
-  // Don't use $select to ensure we get @odata.type for proper type detection
-  let url = `/groups/${groupId}/members?$top=100`;
-
-  // Fetch all pages
-  let data = await graphRequest<MemberResponse>(config, url);
-
-  const mapMember = (member: MemberResponse['value'][0]): GroupMember => {
-    // Determine type from @odata.type or by checking for type-specific properties
-    let type: 'User' | 'ServicePrincipal' | 'Group' = 'User';
-
-    const odataType = member['@odata.type'] || '';
-    if (odataType.includes('servicePrincipal') || member.servicePrincipalType || (member.appId && !member.userPrincipalName)) {
-      type = 'ServicePrincipal';
-    } else if (odataType.includes('group')) {
-      type = 'Group';
-    } else if (odataType.includes('user') || member.userPrincipalName) {
-      type = 'User';
+  // Fetch all pages from a given URL
+  async function fetchAllPages(startUrl: string): Promise<MemberResponse['value']> {
+    const items: MemberResponse['value'] = [];
+    let data = await graphRequest<MemberResponse>(config, startUrl);
+    items.push(...data.value);
+    while (data['@odata.nextLink']) {
+      const nextUrl = data['@odata.nextLink'].replace(GRAPH_API_BASE, '');
+      data = await graphRequest<MemberResponse>(config, nextUrl);
+      items.push(...data.value);
     }
+    return items;
+  }
 
-    return {
+  // Fetch all member types in parallel using type-cast endpoints
+  // The generic /members endpoint may filter out types the SP lacks read permissions for,
+  // but type-specific endpoints work with Application.ReadWrite.All and Group.ReadWrite.All
+  const [users, servicePrincipals, groups] = await Promise.all([
+    fetchAllPages(`/groups/${groupId}/members/microsoft.graph.user?$top=100`).catch(() => []),
+    fetchAllPages(`/groups/${groupId}/members/microsoft.graph.servicePrincipal?$top=100`).catch(() => []),
+    fetchAllPages(`/groups/${groupId}/members/microsoft.graph.group?$top=100`).catch(() => []),
+  ]);
+
+  const allMembers: GroupMember[] = [];
+
+  for (const member of users) {
+    allMembers.push({
       id: member.id,
       displayName: member.displayName || member.id,
-      type,
+      type: 'User',
       email: member.userPrincipalName || member.mail,
+    });
+  }
+
+  for (const member of servicePrincipals) {
+    allMembers.push({
+      id: member.id,
+      displayName: member.displayName || member.id,
+      type: 'ServicePrincipal',
       appId: member.appId,
-    };
-  };
+    });
+  }
 
-  allMembers.push(...data.value.map(mapMember));
-
-  // Fetch remaining pages
-  while (data['@odata.nextLink']) {
-    const nextUrl = data['@odata.nextLink'].replace(GRAPH_API_BASE, '');
-    data = await graphRequest<MemberResponse>(config, nextUrl);
-    allMembers.push(...data.value.map(mapMember));
+  for (const member of groups) {
+    allMembers.push({
+      id: member.id,
+      displayName: member.displayName || member.id,
+      type: 'Group',
+    });
   }
 
   return allMembers;
