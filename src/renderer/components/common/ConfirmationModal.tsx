@@ -18,6 +18,7 @@ interface ConfirmationModalProps {
   isDangerous?: boolean;
   isLoading?: boolean;
   icon?: 'warning' | 'delete' | 'none';
+  error?: string | null;
 }
 
 export function ConfirmationModal({
@@ -31,6 +32,7 @@ export function ConfirmationModal({
   isDangerous = false,
   isLoading = false,
   icon = 'warning',
+  error = null,
 }: ConfirmationModalProps) {
   const handleConfirm = () => {
     if (!isLoading) {
@@ -89,6 +91,13 @@ export function ConfirmationModal({
             )}
           </div>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">

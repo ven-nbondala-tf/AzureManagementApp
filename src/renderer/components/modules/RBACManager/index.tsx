@@ -59,6 +59,7 @@ export function RBACManager() {
   const [typeFilter, setTypeFilter] = useState<PrincipalType | ''>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<RoleAssignmentDisplay | null>(null);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
 
   const { resourceGroups } = useResourceGroups();
   const { isLoading: isLoadingResources, resources: resourceList } = useResources(selectedResourceGroup || undefined);
@@ -113,11 +114,12 @@ export function RBACManager() {
 
   const handleDelete = async () => {
     if (!assignmentToDelete) return;
+    setDeleteErrorMsg(null);
     try {
       await deleteAssignment(assignmentToDelete.id);
       setAssignmentToDelete(null);
-    } catch {
-      // Error is handled by the hook
+    } catch (err) {
+      setDeleteErrorMsg(err instanceof Error ? err.message : 'Failed to remove role assignment');
     }
   };
 
@@ -479,7 +481,7 @@ export function RBACManager() {
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={!!assignmentToDelete}
-        onClose={() => setAssignmentToDelete(null)}
+        onClose={() => { setAssignmentToDelete(null); setDeleteErrorMsg(null); }}
         onConfirm={handleDelete}
         title="Remove Role Assignment"
         message={
@@ -510,6 +512,7 @@ export function RBACManager() {
         isDangerous
         isLoading={isDeleting}
         icon="delete"
+        error={deleteErrorMsg}
       />
     </div>
   );
